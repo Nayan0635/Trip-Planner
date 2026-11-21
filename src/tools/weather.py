@@ -5,11 +5,17 @@ from typing import Optional
 
 import requests
 
-BASE_URL = "https://api.openweathermap.org/data/2.5/weather"
+GEOCODING_URL = "https://api.openweathermap.org/geo/1.0/direct"
+WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
+
 
 @tool
-def get_current_weather(location: str, units: str = "metric", api_key: Optional[str] = None) -> dict:
-    '''Fetches current weather information (temperature, conditions, humidity) for a given city or location'''
+def get_current_weather(
+    location: str,
+    units: str = "metric",
+    api_key: Optional[str] = None,
+) -> dict:
+    '''Fetch current weather conditions for a city or location'''
     key = api_key or os.environ.get("OPENWEATHERMAP_API_KEY")
     if not key:
         raise ValueError(
@@ -17,16 +23,32 @@ def get_current_weather(location: str, units: str = "metric", api_key: Optional[
             "the OPENWEATHERMAP_API_KEY environment variable."
         )
 
-    response = requests.get(
-        BASE_URL,
-        params={"q": location, "appid": key, "units": units},
+    # Step 1: Resolve location name to latitude and longitude
+    geo_response = requests.get(
+        GEOCODING_URL,
+        params={"q": location, "limit": 1, "appid": key},
         timeout=10,
     )
-    response.raise_for_status()
-    data = response.json()
+    geo_response.raise_for_status()
+    geo_results = geo_response.json()
 
-    country = data.get("sys", {}).get("country", "")
-    resolved_name = data.get("name", location)
+    if not isinstance(geo_results, list) or not geo_results:
+        raise ValueError(f"Could not resolve location: {location!r}")
+
+    lat = geo_results[0]["lat"]
+    lon = geo_results[0]["lon"]
+
+    # Step 2: Fetch current weather using coordinates
+    weather_response = requests.get(
+        WEATHER_URL,
+        params={"lat": lat, "lon": lon, "appid": key, "units": units},
+        timeout=10,
+    )
+    weather_response.raise_for_status()
+    data = weather_response.json()
+
+    country = data.get("sys", {}).get("country", "") or geo_results[0].get("country", "")
+    resolved_name = data.get("name") or geo_results[0].get("name", location)
 
     return {
         "location": f"{resolved_name}, {country}".strip(", "),

@@ -1,10 +1,8 @@
-
 from __future__ import annotations
 from langchain.tools import tool
 import requests
 
-BASE_URL = "https://api.frankfurter.app/latest"
-
+FRANKFURTER_RATES_URL = "https://api.frankfurter.dev/v2/rates"
 
 @tool
 def convert_currency(amount: float, source_currency: str, target_currency: str) -> dict:
@@ -13,25 +11,28 @@ def convert_currency(amount: float, source_currency: str, target_currency: str) 
     target_currency = target_currency.upper()
 
     response = requests.get(
-        BASE_URL,
-        params={"amount": amount, "from": source_currency, "to": target_currency},
+        FRANKFURTER_RATES_URL,
+        params={"base": source_currency, "quotes": target_currency},
         timeout=10,
     )
     response.raise_for_status()
-    data = response.json()
+    rows = response.json()
 
-    rates = data.get("rates", {})
-    if target_currency not in rates:
+    if not isinstance(rows, list) or not rows:
         raise ValueError(f"Unsupported currency pair: {source_currency} -> {target_currency}")
 
-    converted_amount = rates[target_currency]
-    exchange_rate = converted_amount / amount if amount else None
+    match = next((row for row in rows if row.get("quote") == target_currency), None)
+    if not match or "rate" not in match:
+        raise ValueError(f"Unsupported currency pair: {source_currency} -> {target_currency}")
+
+    rate = float(match["rate"])
+    converted_amount = amount * rate
 
     return {
         "amount": amount,
         "source_currency": source_currency,
         "target_currency": target_currency,
-        "exchange_rate": round(exchange_rate, 6) if exchange_rate is not None else None,
+        "exchange_rate": round(rate, 6),
         "converted_amount": round(converted_amount, 2),
-        "date": data.get("date"),
+        "date": match.get("date"),
     }
