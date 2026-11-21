@@ -27,7 +27,7 @@ The project should prioritize functional features, clean architecture, reliable 
 - `src/graph/` contains LangGraph state, nodes, graph construction and prompts.
 - `src/tools/` contains external API integrations and travel-related utility operations.
 - `src/config/` contains configuration and settings.
-- `src/utils/` contains reusable helper functions.
+- `src/utils/` contains reusable helper functions. haven't anything now empty.
 - `tests/` contains automated tests.
 
 Do not move files, introduce additional architectural layers or restructure the project without a clear reason.
