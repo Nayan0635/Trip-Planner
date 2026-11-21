@@ -3,7 +3,6 @@ from langchain.tools import tool
 from collections import defaultdict
 from typing import Iterable
 
-
 @tool
 def organize_by_category(expenses: Iterable[dict]) -> dict:
     '''Group travel expenses by category and compute per-category subtotals'''

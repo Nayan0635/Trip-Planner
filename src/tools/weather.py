@@ -10,11 +10,7 @@ WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 
 @tool
-def get_current_weather(
-    location: str,
-    units: str = "metric",
-    api_key: Optional[str] = None,
-) -> dict:
+def get_current_weather(location: str, units: str = "metric", api_key: Optional[str] = None) -> dict:
     '''Fetch current weather conditions for a city or location'''
     key = api_key or os.environ.get("OPENWEATHERMAP_API_KEY")
     if not key:
