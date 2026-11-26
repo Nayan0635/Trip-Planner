@@ -1,11 +1,9 @@
-"""LangGraph workflow construction and compilation for Trip Planner."""
-
+'''LangGraph workflow construction and compilation for Trip Planner.'''
 from __future__ import annotations
-
 from typing import Any, Optional, Sequence
 
 from langchain_core.language_models import BaseChatModel
-from langgraph.graph import END, START, StateGraph
+from langgraph.graph import START, END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -27,7 +25,7 @@ TOOLS: list[Any] = [
 
 
 def route_tools(state: GraphState) -> str:
-    """Conditional routing function after the assistant node.
+    '''Conditional routing function after the assistant node.
 
     Checks whether the latest assistant message contains tool calls:
     - If tool calls exist, route to the 'tools' node.
@@ -38,7 +36,7 @@ def route_tools(state: GraphState) -> str:
 
     Returns:
         str: Next node destination ('tools' or END).
-    """
+    '''
     messages = state.get("messages", [])
     if not messages:
         return END
@@ -53,7 +51,7 @@ def build_graph(
     model: Optional[BaseChatModel] = None,
     tools: Optional[Sequence[Any]] = None,
 ) -> CompiledStateGraph:
-    """Construct and compile the Trip Planner LangGraph workflow.
+    '''Construct and compile the Trip Planner LangGraph workflow.
 
     Workflow Sequence:
     1. START -> 'assistant': User request received, processed with system prompt.
@@ -71,7 +69,7 @@ def build_graph(
 
     Returns:
         CompiledStateGraph: The compiled executable LangGraph application.
-    """
+    '''
     active_tools = list(tools) if tools is not None else list(TOOLS)
 
     assistant = create_assistant_node(model=model, tools=active_tools)

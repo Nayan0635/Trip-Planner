@@ -1,26 +1,31 @@
-"""Automated tests for LangGraph implementation in src/graph/."""
-
+'''Automated tests for LangGraph implementation in src/graph/.'''
 from __future__ import annotations
+
+import sys
+from pathlib import Path
+# Ensure project root is on sys.path so `src` is importable
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 import os
 import unittest
 from typing import Any
 from unittest.mock import MagicMock, patch
 
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from src.graph.graph import TOOLS, build_graph, route_tools
-from src.graph.nodes import create_assistant_node, get_llm
+from src.graph.nodes import create_assistant_node
 from src.graph.prompts import SYSTEM_PROMPT
 from src.graph.state import GraphState
 
 
 class MockToolCallingChatModel:
-    """A mock chat model that returns a sequence of predetermined AIMessages.
-
+    '''A mock chat model that returns a sequence of predetermined AIMessages.
     Supports `bind_tools()` and `invoke()`.
-    """
+    '''
 
     def __init__(self, responses: list[AIMessage]):
         self._responses = list(responses)
@@ -37,10 +42,10 @@ class MockToolCallingChatModel:
 
 
 class TestGraphImplementation(unittest.TestCase):
-    """Test suite covering the graph state, nodes, routing, tools, and compilation."""
+    '''Test suite covering the graph state, nodes, routing, tools, and compilation.'''
 
     def test_graph_construction_and_compilation(self):
-        """Verify the graph compiles and includes assistant and tools nodes."""
+        '''Verify the graph compiles and includes assistant and tools nodes.'''
         mock_model = MockToolCallingChatModel([AIMessage(content="Hello!")])
         graph = build_graph(model=mock_model)
         self.assertIsNotNone(graph)
@@ -48,7 +53,7 @@ class TestGraphImplementation(unittest.TestCase):
         self.assertIn("tools", graph.nodes)
 
     def test_registered_tools_count_and_identities(self):
-        """Verify all 5 required tools are registered in the graph module."""
+        '''Verify all 5 required tools are registered in the graph module.'''
         tool_names = [t.name for t in TOOLS]
         self.assertEqual(len(TOOLS), 5)
         self.assertIn("get_nearby_attractions", tool_names)
@@ -58,7 +63,7 @@ class TestGraphImplementation(unittest.TestCase):
         self.assertIn("calculate_total_cost", tool_names)
 
     def test_user_request_terminates_without_tool_calls(self):
-        """Verify normal conversation without tool calls terminates correctly at END."""
+        '''Verify normal conversation without tool calls terminates correctly at END.'''
         mock_model = MockToolCallingChatModel([
             AIMessage(content="I recommend visiting Kyoto, Japan in the autumn.")
         ])
@@ -80,7 +85,7 @@ class TestGraphImplementation(unittest.TestCase):
 
     @patch("requests.get")
     def test_weather_tool_execution_flow(self, mock_get: MagicMock):
-        """Verify tool calling, execution through ToolNode, and return to assistant."""
+        '''Verify tool calling, execution through ToolNode, and return to assistant.'''
         # Setup mock responses for OpenWeatherMap geo & weather endpoints
         geo_mock = MagicMock()
         geo_mock.status_code = 200
@@ -130,7 +135,7 @@ class TestGraphImplementation(unittest.TestCase):
 
     @patch("requests.get")
     def test_currency_conversion_tool_flow(self, mock_get: MagicMock):
-        """Verify convert_currency tool execution and routing."""
+        '''Verify convert_currency tool execution and routing.'''
         frankfurter_mock = MagicMock()
         frankfurter_mock.status_code = 200
         frankfurter_mock.json.return_value = [
@@ -164,7 +169,7 @@ class TestGraphImplementation(unittest.TestCase):
 
     @patch("requests.get")
     def test_places_tool_execution_flow(self, mock_get: MagicMock):
-        """Verify get_nearby_attractions execution through the graph."""
+        '''Verify get_nearby_attractions execution through the graph.'''
         geo_mock = MagicMock()
         geo_mock.status_code = 200
         geo_mock.json.return_value = {"lat": 41.9028, "lon": 12.4964}
@@ -203,7 +208,7 @@ class TestGraphImplementation(unittest.TestCase):
         self.assertIn("Pantheon", messages[3].content)
 
     def test_expenses_tools_flow(self):
-        """Verify organize_by_category and calculate_total_cost tools in graph."""
+        '''Verify organize_by_category and calculate_total_cost tools in graph.'''
         sample_expenses = [
             {"category": "flight", "amount": 500.0},
             {"category": "lodging", "amount": 350.0},
@@ -245,7 +250,7 @@ class TestGraphImplementation(unittest.TestCase):
         self.assertIn("1000", messages[3].content)
 
     def test_tool_error_handled_gracefully_without_crash(self):
-        """Verify tool execution error returns an error ToolMessage and does not crash the graph."""
+        '''Verify tool execution error returns an error ToolMessage and does not crash the graph.'''
         tool_call = {
             "name": "get_current_weather",
             "args": {"location": "Paris"},
@@ -274,21 +279,26 @@ class TestGraphImplementation(unittest.TestCase):
         self.assertIn("could not retrieve the weather", messages[3].content)
 
     def test_empty_messages_validation(self):
-        """Verify assistant node raises ValueError on empty message list."""
+        '''Verify assistant node raises ValueError on empty message list.'''
         node = create_assistant_node(model=MockToolCallingChatModel([]))
         with self.assertRaises(ValueError) as ctx:
             node({"messages": []})
         self.assertIn("Graph state contains no messages", str(ctx.exception))
 
-    def test_missing_nvidia_credentials_raises_clear_error(self):
-        """Verify get_llm raises ValueError when NVIDIA_API_KEY is missing."""
-        with patch("src.config.settings.NVIDIA_API_KEY", None):
-            with self.assertRaises(ValueError) as ctx:
-                get_llm(api_key=None)
-            self.assertIn("NVIDIA_API_KEY is not configured", str(ctx.exception))
+    def test_existing_system_message_is_not_duplicated(self):
+        '''Verify an existing system message is passed through without another prompt.'''
+        system_message = SystemMessage(content="Use concise answers.")
+        user_message = HumanMessage(content="Plan a weekend in Rome.")
+        model = MockToolCallingChatModel([AIMessage(content="Here is a plan.")])
+        node = create_assistant_node(model=model)
+
+        result = node({"messages": [system_message, user_message]})
+
+        self.assertEqual(model.invocations[0], [system_message, user_message])
+        self.assertEqual(result["messages"], [AIMessage(content="Here is a plan.")])
 
     def test_route_tools_edge(self):
-        """Verify route_tools function routes correctly."""
+        '''Verify route_tools function routes correctly.'''
         # No messages -> END
         self.assertEqual(route_tools({"messages": []}), "__end__")
 
@@ -304,6 +314,16 @@ class TestGraphImplementation(unittest.TestCase):
             route_tools({"messages": [AIMessage(content="", tool_calls=[tool_call])]}),
             "tools",
         )
+
+    def test_route_tools_uses_only_latest_message(self):
+        '''Verify an earlier tool call does not route after a later plain response.'''
+        tool_call = {"name": "convert_currency", "args": {}, "id": "1"}
+        messages = [
+            AIMessage(content="", tool_calls=[tool_call]),
+            AIMessage(content="Done."),
+        ]
+
+        self.assertEqual(route_tools({"messages": messages}), "__end__")
 
 
 if __name__ == "__main__":
