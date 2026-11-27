@@ -1,4 +1,4 @@
-"""Streamlit chat UI for the AI Trip Planner."""
+'''Streamlit chat UI for the AI Trip Planner.'''
 
 from __future__ import annotations
 
@@ -18,12 +18,12 @@ st.set_page_config(page_title="AI Trip Planner", page_icon="✈️", layout="wid
 
 @st.cache_resource
 def load_graph():
-    """Cache the compiled LangGraph workflow across the Streamlit server session."""
+    '''Cache the compiled LangGraph workflow across the Streamlit server session.'''
     return get_graph()
 
 
 def _key_status(env_var: str, settings_val: str | None) -> str:
-    """Return a non-sensitive configuration status label for an API key."""
+    '''Return a non-sensitive configuration status label for an API key.'''
     return "✅ Configured" if (os.environ.get(env_var) or settings_val) else "⚠️ Missing"
 
 
@@ -80,34 +80,20 @@ else:
                 st.markdown(msg.content)
 
 if prompt := st.chat_input("Ask me anything about your trip..."):
-    st.session_state["messages"].append(HumanMessage(content=prompt))
     with st.chat_message("user"):
         st.markdown(prompt)
 
     with st.chat_message("assistant"):
         try:
             graph = load_graph()
+            with st.spinner("Planning your trip..."):
+                result = graph.invoke(
+                    {"messages": st.session_state["messages"] + [HumanMessage(content=prompt)]}
+                )
+            st.session_state["messages"] = result["messages"]
+            st.markdown(result["messages"][-1].content)
         except ValueError as err:
             st.error(str(err))
         except Exception:
-            logger.exception("Failed to initialize Trip Planner graph.")
+            logger.exception("Error during Trip Planner graph invocation.")
             st.error("Something went wrong. Please try again.")
-        else:
-            try:
-                with st.spinner("Planning your trip..."):
-                    result = graph.invoke({"messages": st.session_state["messages"]})
-                response = next(
-                    (
-                        m
-                        for m in reversed(result["messages"])
-                        if isinstance(m, AIMessage) and not getattr(m, "tool_calls", None)
-                    ),
-                    None,
-                )
-                st.session_state["messages"] = result["messages"]
-                if response is not None:
-                    st.markdown(response.content)
-                st.rerun()
-            except Exception:
-                logger.exception("Error during Trip Planner graph invocation.")
-                st.error("Something went wrong. Please try again.")

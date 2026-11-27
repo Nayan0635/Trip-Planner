@@ -14,6 +14,7 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 # models
 LLM_MODEL = {
     "nvidia": "nvidia/nemotron-3-ultra-550b-a55b",
+    "nvidia": "nvidia/nemotron-3.5-super-vl-120b-a12b",
     "gemini": "gemini-2.5-flash",
     "gemini": "gemini-3.1-flash-lite",
     "groq": "qwen/qwen3.8-27b",
